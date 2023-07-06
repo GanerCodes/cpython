@@ -61,6 +61,9 @@ const char * const _PyParser_TokenNames[] = {
     "ELLIPSIS",
     "COLONEQUAL",
     "EXCLAMATION",
+    "DOLLARG",
+    "DOLLARL",
+    "DOLLAREQ",
     "OP",
     "AWAIT",
     "ASYNC",
@@ -120,6 +123,12 @@ _PyToken_TwoChars(int c1, int c2)
         case '=': return NOTEQUAL;
         }
         break;
+    case '$':
+        switch (c2) {
+        case '=': return DOLLAREQ;
+        case '>': return DOLLARG;
+        }
+        break;
     case '%':
         switch (c2) {
         case '=': return PERCENTEQUAL;
@@ -160,6 +169,7 @@ _PyToken_TwoChars(int c1, int c2)
         break;
     case '<':
         switch (c2) {
+        case '$': return DOLLARL;
         case '<': return LEFTSHIFT;
         case '=': return LESSEQUAL;
         case '>': return NOTEQUAL;

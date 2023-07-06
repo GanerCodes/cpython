@@ -205,6 +205,18 @@
 
    Token value for ``"!"``.
 
+.. data:: DOLLARG
+
+   Token value for ``"$>"``.
+
+.. data:: DOLLARL
+
+   Token value for ``"<$"``.
+
+.. data:: DOLLAREQ
+
+   Token value for ``"$="``.
+
 .. data:: OP
 
 .. data:: AWAIT

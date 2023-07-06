@@ -54,6 +54,9 @@ RARROW                  '->'
 ELLIPSIS                '...'
 COLONEQUAL              ':='
 EXCLAMATION             '!'
+DOLLARG                 '$>'
+DOLLARL                 '<$'
+DOLLAREQ                '$='
 
 OP
 AWAIT

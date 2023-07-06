@@ -58,21 +58,24 @@ RARROW = 51
 ELLIPSIS = 52
 COLONEQUAL = 53
 EXCLAMATION = 54
-OP = 55
-AWAIT = 56
-ASYNC = 57
-TYPE_IGNORE = 58
-TYPE_COMMENT = 59
-SOFT_KEYWORD = 60
-FSTRING_START = 61
-FSTRING_MIDDLE = 62
-FSTRING_END = 63
-COMMENT = 64
-NL = 65
+DOLLARG = 55
+DOLLARL = 56
+DOLLAREQ = 57
+OP = 58
+AWAIT = 59
+ASYNC = 60
+TYPE_IGNORE = 61
+TYPE_COMMENT = 62
+SOFT_KEYWORD = 63
+FSTRING_START = 64
+FSTRING_MIDDLE = 65
+FSTRING_END = 66
+COMMENT = 67
+NL = 68
 # These aren't used by the C tokenizer but are needed for tokenize.py
-ERRORTOKEN = 66
-ENCODING = 67
-N_TOKENS = 68
+ERRORTOKEN = 69
+ENCODING = 70
+N_TOKENS = 71
 # Special definitions for cooperation with parser
 NT_OFFSET = 256
 
@@ -84,6 +87,8 @@ __all__.extend(tok_name.values())
 EXACT_TOKEN_TYPES = {
     '!': EXCLAMATION,
     '!=': NOTEQUAL,
+    '$=': DOLLAREQ,
+    '$>': DOLLARG,
     '%': PERCENT,
     '%=': PERCENTEQUAL,
     '&': AMPER,
@@ -110,6 +115,7 @@ EXACT_TOKEN_TYPES = {
     ':=': COLONEQUAL,
     ';': SEMI,
     '<': LESS,
+    '<$': DOLLARL,
     '<<': LEFTSHIFT,
     '<<=': LEFTSHIFTEQUAL,
     '<=': LESSEQUAL,
