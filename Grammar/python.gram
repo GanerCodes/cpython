@@ -904,7 +904,7 @@ lambda_param[arg_ty]: a=NAME { _PyAST_arg(a->v.Name.id, NULL, NULL, EXTRA) }
 
 # cool
 cool_lamb[expr_ty]:
-    | '<$'? a=[lambda_parameters] '$>' b=expression {
+    | '<$'? a=[lambda_parameters] (':'|'$>') b=expression {
         _PyAST_Lambda((a) ? a : CHECK(arguments_ty, _PyPegen_empty_arguments(p)), b, EXTRA) }
 
 # LITERALS
