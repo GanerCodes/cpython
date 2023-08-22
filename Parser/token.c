@@ -64,6 +64,7 @@ const char * const _PyParser_TokenNames[] = {
     "DOLLARG",
     "DOLLARL",
     "DOLLAREQ",
+    "DOLLARQ",
     "OP",
     "AWAIT",
     "ASYNC",
@@ -194,6 +195,11 @@ _PyToken_TwoChars(int c1, int c2)
     case '^':
         switch (c2) {
         case '=': return CIRCUMFLEXEQUAL;
+        }
+        break;
+    case '`':
+        switch (c2) {
+        case '$': return DOLLARQ;
         }
         break;
     case '|':

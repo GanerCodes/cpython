@@ -57,6 +57,7 @@ EXCLAMATION             '!'
 DOLLARG                 '$>'
 DOLLARL                 '<$'
 DOLLAREQ                '$='
+DOLLARQ                 '`$'
 
 OP
 AWAIT

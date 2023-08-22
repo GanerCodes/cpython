@@ -9020,13 +9020,13 @@ slot_tp_init(PyObject *self, PyObject *args, PyObject *kwds)
     Py_DECREF(meth);
     if (res == NULL)
         return -1;
-    if (res != Py_None) {
+    /* if (res != Py_None) { // λ
         PyErr_Format(PyExc_TypeError,
                      "__init__() should return None, not '%.200s'",
                      Py_TYPE(res)->tp_name);
         Py_DECREF(res);
         return -1;
-    }
+    } */
     Py_DECREF(res);
     return 0;
 }

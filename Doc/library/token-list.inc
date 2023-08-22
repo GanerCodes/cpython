@@ -217,6 +217,10 @@
 
    Token value for ``"$="``.
 
+.. data:: DOLLARQ
+
+   Token value for ``"`$"``.
+
 .. data:: OP
 
 .. data:: AWAIT

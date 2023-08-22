@@ -3943,11 +3943,8 @@ compiler_visit_stmt(struct compiler *c, stmt_ty s)
         Py_ssize_t n = asdl_seq_LEN(s->v.Assign.targets);
         VISIT(c, expr, s->v.Assign.value);
         for (Py_ssize_t i = 0; i < n; i++) {
-            if (i < n - 1) {
-                ADDOP_I(c, LOC(s), COPY, 1);
-            }
-            VISIT(c, expr,
-                  (expr_ty)asdl_seq_GET(s->v.Assign.targets, i));
+            if (i < n - 1) ADDOP_I(c, LOC(s), COPY, 1);
+            VISIT(c, expr, (expr_ty)asdl_seq_GET(s->v.Assign.targets, i));
         }
         break;
     }

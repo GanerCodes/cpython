@@ -71,19 +71,20 @@ extern "C" {
 #define DOLLARG         55
 #define DOLLARL         56
 #define DOLLAREQ        57
-#define OP              58
-#define AWAIT           59
-#define ASYNC           60
-#define TYPE_IGNORE     61
-#define TYPE_COMMENT    62
-#define SOFT_KEYWORD    63
-#define FSTRING_START   64
-#define FSTRING_MIDDLE  65
-#define FSTRING_END     66
-#define COMMENT         67
-#define NL              68
-#define ERRORTOKEN      69
-#define N_TOKENS        71
+#define DOLLARQ         58
+#define OP              59
+#define AWAIT           60
+#define ASYNC           61
+#define TYPE_IGNORE     62
+#define TYPE_COMMENT    63
+#define SOFT_KEYWORD    64
+#define FSTRING_START   65
+#define FSTRING_MIDDLE  66
+#define FSTRING_END     67
+#define COMMENT         68
+#define NL              69
+#define ERRORTOKEN      70
+#define N_TOKENS        72
 #define NT_OFFSET       256
 
 /* Special definitions for cooperation with parser */

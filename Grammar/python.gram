@@ -142,13 +142,9 @@ compound_stmt[stmt_ty]:
 # NOTE: annotated_rhs may start with 'yield'; yield_expr must start with 'yield'
 assignment[stmt_ty]:
     | a=NAME ':' b=expression c=['=' d=annotated_rhs { d }] {
-        CHECK_VERSION(
-            stmt_ty,
-            6,
-            "Variable annotation syntax is",
-            _PyAST_AnnAssign(CHECK(expr_ty, _PyPegen_set_expr_context(p, a, Store)), b, c, 1, EXTRA)
-        ) }
-    | a=('(' b=single_target ')' { b }
+        CHECK_VERSION(stmt_ty, 6, "Variable annotation syntax is",
+            _PyAST_AnnAssign(CHECK(expr_ty, _PyPegen_set_expr_context(p, a, Store)), b, c, 1, EXTRA) ) }
+    | a=( '(' b=single_target ')' { b }
          | single_subscript_attribute_target) ':' b=expression c=['=' d=annotated_rhs { d }] {
         CHECK_VERSION(stmt_ty, 6, "Variable annotations syntax is", _PyAST_AnnAssign(a, b, c, 0, EXTRA)) }
     | a[asdl_expr_seq*]=(z=star_targets '=' { z })+ b=(yield_expr | star_expressions) !'=' tc=[TYPE_COMMENT] {
@@ -670,10 +666,18 @@ expressions[expr_ty]:
     | expression
 
 expression[expr_ty] (memo): # λ
-    | cool_lamb
-    | lambdef
+    | cool_impl_lamb
+    | expression_not_cool_impl_lamb
+
+# kitty_expressions[asdl_expr_seq*]: a[asdl_expr_seq*]='`$'.(expression_not_cool_impl_lamb_anticoolcatinator)+ { a }
+# coolcat[expr_ty]: a=expression_not_cool_impl_lamb_anticoolcatinator '`$' b[asdl_expr_seq*]=kitty_expressions {
+#         _PyAST_List( _PyPegen_seq_insert_in_front(p, a, b), Load, EXTRA) }
+# expression_not_cool_impl_lamb_anticoolcatinator[expr_ty] (memo): topcat | bottomcat
+expression_not_cool_impl_lamb[expr_ty] (memo): topcat | bottomcat
+topcat[expr_ty] (memo):
     | a=disjunction 'if' b=disjunction 'else' c=expression { _PyAST_IfExp(b, a, c, EXTRA) }
     | a=disjunction 'if' b=disjunction { _PyAST_IfExp(b, a, _PyAST_Constant(Py_None, NULL, EXTRA), EXTRA) }
+bottomcat[expr_ty] (memo):
     | disjunction
     | invalid_expression
     | invalid_legacy_expression
@@ -700,8 +704,12 @@ star_named_expression[expr_ty]:
 
 assignment_expression[expr_ty]: # λ
     | a=primary ':=' ~ b=expression {
-        CHECK_VERSION(expr_ty, 8, "Assignment expressions are",
-        _PyAST_NamedExpr(CHECK(expr_ty, _PyPegen_set_expr_context(p, a, Store)), b, EXTRA)) }
+        _PyAST_NamedExpr(
+            _PyPegen_set_expr_context(p, a, Store),
+            b, EXTRA) }
+        # CHECK_VERSION(expr_ty, 8, "Assignment expressions are",
+        #     _PyAST_NamedExpr(
+        #         CHECK(expr_ty, _PyPegen_set_expr_context(p, a, Store)), b, EXTRA)) }
 
 named_expression[expr_ty]: # λ
     | assignment_expression
@@ -766,7 +774,14 @@ is_bitwise_or[CmpopExprPair*]: 'is' a=bitwise_or { _PyPegen_cmpop_expr_pair(p, I
 # -----------------
 
 bitwise_or[expr_ty]:
-    | a=bitwise_or '|' b=bitwise_xor { _PyAST_BinOp(a, BitOr, b, EXTRA) }
+    | a=bitwise_or '|' b=coolcat { _PyAST_BinOp(a, BitOr, b, EXTRA) }
+    | a=bitwise_or b=coolcat { _PyAST_BinOp(a, BitOr, b, EXTRA) }
+    | coolcat
+
+kitty_expressions[asdl_expr_seq*]: a[asdl_expr_seq*]='`$'.(bitwise_xor)+ { a }
+coolcat[expr_ty]:
+    | a=bitwise_xor '`$' b[asdl_expr_seq*]=kitty_expressions {
+        _PyAST_List(_PyPegen_seq_insert_in_front(p, a, b), Load, EXTRA) }
     | bitwise_xor
 
 bitwise_xor[expr_ty]:
@@ -847,6 +862,7 @@ atom[expr_ty]:
     | &'[' (list | listcomp)
     | &'{' (dict | set | dictcomp | setcomp)
     | '...' { _PyAST_Constant(Py_Ellipsis, NULL, EXTRA) }
+    | lambdef
 
 group[expr_ty]:
     | '(' a=(yield_expr | named_expression) ')' { a }
@@ -856,8 +872,16 @@ group[expr_ty]:
 # ----------------
 
 lambdef[expr_ty]:
-    | 'lambda' a=[lambda_params] (':'|'$>') b=expression {
+    | 'lambda' a=[lambda_params] ':' b=expression {
         _PyAST_Lambda((a) ? a : CHECK(arguments_ty, _PyPegen_empty_arguments(p)), b, EXTRA) }
+    | cool_lamb
+cool_lamb[expr_ty]: # cool λ
+    | '<$' a=[lambda_parameters] '$>' b=expression {
+        _PyAST_Lambda((a) ? a : CHECK(arguments_ty, _PyPegen_empty_arguments(p)), b, EXTRA) }
+cool_impl_lamb[expr_ty]: # turns out to be weird and hacky
+    | a=[lambda_parameters] '$>' b=expression {
+        _PyAST_Lambda((a) ? a : CHECK(arguments_ty, _PyPegen_empty_arguments(p)), b, EXTRA) }
+
 lambda_params[arguments_ty]:
     | invalid_lambda_parameters
     | lambda_parameters
@@ -895,17 +919,13 @@ lambda_param_no_default[arg_ty]:
     | a=lambda_param ',' { a }
     | a=lambda_param &(':'|'$>') { a }
 lambda_param_with_default[NameDefaultPair*]:
-    | a=lambda_param c=default ',' { _PyPegen_name_default_pair(p, a, c, NULL) }
-    | a=lambda_param c=default &(':'|'$>') { _PyPegen_name_default_pair(p, a, c, NULL) }
+    | a=lambda_param c=lamb_default ',' { _PyPegen_name_default_pair(p, a, c, NULL) }
+    | a=lambda_param c=lamb_default &(':'|'$>') { _PyPegen_name_default_pair(p, a, c, NULL) }
 lambda_param_maybe_default[NameDefaultPair*]:
-    | a=lambda_param c=default? ',' { _PyPegen_name_default_pair(p, a, c, NULL) }
-    | a=lambda_param c=default? &(':'|'$>') { _PyPegen_name_default_pair(p, a, c, NULL) }
+    | a=lambda_param c=lamb_default? ',' { _PyPegen_name_default_pair(p, a, c, NULL) }
+    | a=lambda_param c=lamb_default? &(':'|'$>') { _PyPegen_name_default_pair(p, a, c, NULL) }
 lambda_param[arg_ty]: a=NAME { _PyAST_arg(a->v.Name.id, NULL, NULL, EXTRA) }
-
-# cool
-cool_lamb[expr_ty]:
-    | '<$'? a=[lambda_parameters] (':'|'$>') b=expression {
-        _PyAST_Lambda((a) ? a : CHECK(arguments_ty, _PyPegen_empty_arguments(p)), b, EXTRA) }
+lamb_default[expr_ty]: '=' a=expression_not_cool_impl_lamb { a } | invalid_default
 
 # LITERALS
 # ========
