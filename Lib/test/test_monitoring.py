@@ -501,6 +501,22 @@ class MultipleMonitorsTest(MonitoringTestBase, unittest.TestCase):
             self.assertEqual(sys.monitoring._all_events(), {})
             sys.monitoring.restart_events()
 
+    def test_with_instruction_event(self):
+        """Test that the second tool can set events with instruction events set by the first tool."""
+        def f():
+            pass
+        code = f.__code__
+
+        try:
+            self.assertEqual(sys.monitoring._all_events(), {})
+            sys.monitoring.set_local_events(TEST_TOOL, code, E.INSTRUCTION | E.LINE)
+            sys.monitoring.set_local_events(TEST_TOOL2, code, E.LINE)
+        finally:
+            sys.monitoring.set_events(TEST_TOOL, 0)
+            sys.monitoring.set_events(TEST_TOOL2, 0)
+            self.assertEqual(sys.monitoring._all_events(), {})
+
+
 class LineMonitoringTest(MonitoringTestBase, unittest.TestCase):
 
     def test_lines_single(self):
@@ -1218,9 +1234,11 @@ class TestInstallIncrementallly(MonitoringTestBase, unittest.TestCase):
         self.check_events(self.func2,
                           recorders = recorders, must_include = self.MUST_INCLUDE_CI)
 
+LOCAL_RECORDERS = CallRecorder, LineRecorder, CReturnRecorder, CRaiseRecorder
+
 class TestLocalEvents(MonitoringTestBase, unittest.TestCase):
 
-    def check_events(self, func, expected, tool=TEST_TOOL, recorders=(ExceptionRecorder,)):
+    def check_events(self, func, expected, tool=TEST_TOOL, recorders=()):
         try:
             self.assertEqual(sys.monitoring._all_events(), {})
             event_list = []
@@ -1248,7 +1266,7 @@ class TestLocalEvents(MonitoringTestBase, unittest.TestCase):
             line2 = 2
             line3 = 3
 
-        self.check_events(func1, recorders = MANY_RECORDERS, expected = [
+        self.check_events(func1, recorders = LOCAL_RECORDERS, expected = [
             ('line', 'func1', 1),
             ('line', 'func1', 2),
             ('line', 'func1', 3)])
@@ -1260,7 +1278,7 @@ class TestLocalEvents(MonitoringTestBase, unittest.TestCase):
             [].append(2)
             line3 = 3
 
-        self.check_events(func2, recorders = MANY_RECORDERS, expected = [
+        self.check_events(func2, recorders = LOCAL_RECORDERS, expected = [
             ('line', 'func2', 1),
             ('line', 'func2', 2),
             ('call', 'append', [2]),
@@ -1277,15 +1295,17 @@ class TestLocalEvents(MonitoringTestBase, unittest.TestCase):
                 line = 5
             line = 6
 
-        self.check_events(func3, recorders = MANY_RECORDERS, expected = [
+        self.check_events(func3, recorders = LOCAL_RECORDERS, expected = [
             ('line', 'func3', 1),
             ('line', 'func3', 2),
             ('line', 'func3', 3),
-            ('raise', KeyError),
             ('line', 'func3', 4),
             ('line', 'func3', 5),
             ('line', 'func3', 6)])
 
+    def test_set_non_local_event(self):
+        with self.assertRaises(ValueError):
+            sys.monitoring.set_local_events(TEST_TOOL, just_call.__code__, E.RAISE)
 
 def line_from_offset(code, offset):
     for start, end, line in code.co_lines():
@@ -1698,3 +1718,28 @@ class TestRegressions(MonitoringTestBase, unittest.TestCase):
             self.assertEqual(caught, "inner")
         finally:
             sys.monitoring.set_events(TEST_TOOL, 0)
+
+    def test_108390(self):
+
+        class Foo:
+            def __init__(self, set_event):
+                if set_event:
+                    sys.monitoring.set_events(TEST_TOOL, E.PY_RESUME)
+
+        def make_foo_optimized_then_set_event():
+            for i in range(100):
+                Foo(i == 99)
+
+        try:
+            make_foo_optimized_then_set_event()
+        finally:
+            sys.monitoring.set_events(TEST_TOOL, 0)
+
+    def test_gh108976(self):
+        sys.monitoring.use_tool_id(0, "test")
+        self.addCleanup(sys.monitoring.free_tool_id, 0)
+        sys.monitoring.set_events(0, 0)
+        sys.monitoring.register_callback(0, E.LINE, lambda *args: sys.monitoring.set_events(0, 0))
+        sys.monitoring.register_callback(0, E.INSTRUCTION, lambda *args: 0)
+        sys.monitoring.set_events(0, E.LINE | E.INSTRUCTION)
+        sys.monitoring.set_events(0, 0)

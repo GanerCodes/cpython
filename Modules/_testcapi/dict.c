@@ -2,24 +2,7 @@
 
 #define PY_SSIZE_T_CLEAN
 #include "parts.h"
-
-#define NULLABLE(x) do { if (x == Py_None) x = NULL; } while (0);
-
-#define RETURN_INT(value) do {          \
-        int _ret = (value);             \
-        if (_ret == -1) {               \
-            return NULL;                \
-        }                               \
-        return PyLong_FromLong(_ret);   \
-    } while (0)
-
-#define RETURN_SIZE(value) do {             \
-        Py_ssize_t _ret = (value);          \
-        if (_ret == -1) {                   \
-            return NULL;                    \
-        }                                   \
-        return PyLong_FromSsize_t(_ret);    \
-    } while (0)
+#include "util.h"
 
 
 static PyObject *
@@ -229,7 +212,7 @@ dict_items(PyObject *self, PyObject *obj)
 static PyObject *
 dict_next(PyObject *self, PyObject *args)
 {
-    PyObject *mapping, *key, *value;
+    PyObject *mapping, *key = UNINITIALIZED_PTR, *value = UNINITIALIZED_PTR;
     Py_ssize_t pos;
     if (!PyArg_ParseTuple(args, "On", &mapping, &pos)) {
         return NULL;
@@ -239,6 +222,8 @@ dict_next(PyObject *self, PyObject *args)
     if (rc != 0) {
         return Py_BuildValue("inOO", rc, pos, key, value);
     }
+    assert(key == UNINITIALIZED_PTR);
+    assert(value == UNINITIALIZED_PTR);
     if (PyErr_Occurred()) {
         return NULL;
     }

@@ -44,16 +44,8 @@
 // Several parts of this module are broken out into files in _testcapi/.
 // Include definitions from there.
 #include "_testcapi/parts.h"
+#include "_testcapi/util.h"
 
-#define NULLABLE(x) do { if (x == Py_None) x = NULL; } while (0);
-
-#define RETURN_INT(value) do {          \
-        int _ret = (value);             \
-        if (_ret == -1) {               \
-            return NULL;                \
-        }                               \
-        return PyLong_FromLong(_ret);   \
-    } while (0)
 
 // Forward declarations
 static struct PyModuleDef _testcapimodule;
@@ -229,10 +221,13 @@ test_dict_inner(int count)
         Py_DECREF(v);
     }
 
+    k = v = UNINITIALIZED_PTR;
     while (PyDict_Next(dict, &pos, &k, &v)) {
         PyObject *o;
         iterations++;
 
+        assert(k != UNINITIALIZED_PTR);
+        assert(v != UNINITIALIZED_PTR);
         i = PyLong_AS_LONG(v) + 1;
         o = PyLong_FromLong(i);
         if (o == NULL)
@@ -242,7 +237,10 @@ test_dict_inner(int count)
             return -1;
         }
         Py_DECREF(o);
+        k = v = UNINITIALIZED_PTR;
     }
+    assert(k == UNINITIALIZED_PTR);
+    assert(v == UNINITIALIZED_PTR);
 
     Py_DECREF(dict);
 
@@ -1348,19 +1346,13 @@ static PyObject *
 test_PyBuffer_SizeFromFormat(PyObject *self, PyObject *args)
 {
     const char *format;
-    Py_ssize_t result;
 
     if (!PyArg_ParseTuple(args, "s:test_PyBuffer_SizeFromFormat",
                           &format)) {
         return NULL;
     }
 
-    result = PyBuffer_SizeFromFormat(format);
-    if (result == -1) {
-        return NULL;
-    }
-
-    return PyLong_FromSsize_t(result);
+    RETURN_SIZE(PyBuffer_SizeFromFormat(format));
 }
 
 /* Test that the fatal error from not having a current thread doesn't
@@ -2161,6 +2153,26 @@ negative_refcount(PyObject *self, PyObject *Py_UNUSED(args))
 
     Py_SET_REFCNT(obj,  0);
     /* Py_DECREF() must call _Py_NegativeRefcount() and abort Python */
+    Py_DECREF(obj);
+
+    Py_RETURN_NONE;
+}
+
+static PyObject *
+decref_freed_object(PyObject *self, PyObject *Py_UNUSED(args))
+{
+    PyObject *obj = PyUnicode_FromString("decref_freed_object");
+    if (obj == NULL) {
+        return NULL;
+    }
+    assert(Py_REFCNT(obj) == 1);
+
+    // Deallocate the memory
+    Py_DECREF(obj);
+    // obj is a now a dangling pointer
+
+    // gh-109496: If Python is built in debug mode, Py_DECREF() must call
+    // _Py_NegativeRefcount() and abort Python.
     Py_DECREF(obj);
 
     Py_RETURN_NONE;
@@ -3314,6 +3326,7 @@ static PyMethodDef TestMethods[] = {
     {"bad_get", _PyCFunction_CAST(bad_get), METH_FASTCALL},
 #ifdef Py_REF_DEBUG
     {"negative_refcount", negative_refcount, METH_NOARGS},
+    {"decref_freed_object", decref_freed_object, METH_NOARGS},
 #endif
     {"meth_varargs", meth_varargs, METH_VARARGS},
     {"meth_varargs_keywords", _PyCFunction_CAST(meth_varargs_keywords), METH_VARARGS|METH_KEYWORDS},

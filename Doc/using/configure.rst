@@ -43,6 +43,29 @@ See also :pep:`7` "Style Guide for C Code" and :pep:`11` "CPython platform
 support".
 
 
+Generated files
+===============
+
+To reduce build dependencies, Python source code contains multiple generated
+files. Commands to regenerate all generated files::
+
+    make regen-all
+    make regen-stdlib-module-names
+    make regen-limited-abi
+    make regen-configure
+
+The ``Makefile.pre.in`` file documents generated files, their inputs, and tools used
+to regenerate them. Search for ``regen-*`` make targets.
+
+The ``make regen-configure`` command runs `tiran/cpython_autoconf
+<https://github.com/tiran/cpython_autoconf>`_ container for reproducible build;
+see container ``entry.sh`` script. The container is optional, the following
+command can be run locally, the generated files depend on autoconf and aclocal
+versions::
+
+    autoreconf -ivf -Werror
+
+
 .. _configure-options:
 
 Configure Options
@@ -221,7 +244,7 @@ Install Options
    Install architecture-independent files in PREFIX. On Unix, it
    defaults to :file:`/usr/local`.
 
-   This value can be retrived at runtime using :data:`sys.prefix`.
+   This value can be retrieved at runtime using :data:`sys.prefix`.
 
    As an example, one can use ``--prefix="$HOME/.local/"`` to install
    a Python in its home directory.
@@ -230,7 +253,7 @@ Install Options
 
    Install architecture-dependent files in EPREFIX, defaults to :option:`--prefix`.
 
-   This value can be retrived at runtime using :data:`sys.exec_prefix`.
+   This value can be retrieved at runtime using :data:`sys.exec_prefix`.
 
 .. cmdoption:: --disable-test-modules
 
@@ -754,7 +777,7 @@ differently depending if the ``Py_BUILD_CORE_MODULE`` macro is defined:
 * Use ``Py_IMPORTED_SYMBOL`` otherwise.
 
 If the ``Py_BUILD_CORE_BUILTIN`` macro is used by mistake on a C extension
-built as a shared library, its ``PyInit_xxx()`` function is not exported,
+built as a shared library, its :samp:`PyInit_{xxx}()` function is not exported,
 causing an :exc:`ImportError` on import.
 
 
@@ -775,8 +798,8 @@ Preprocessor flags
 
 .. envvar:: CPPFLAGS
 
-   (Objective) C/C++ preprocessor flags, e.g. ``-I<include dir>`` if you have
-   headers in a nonstandard directory ``<include dir>``.
+   (Objective) C/C++ preprocessor flags, e.g. :samp:`-I{include_dir}` if you have
+   headers in a nonstandard directory *include_dir*.
 
    Both :envvar:`CPPFLAGS` and :envvar:`LDFLAGS` need to contain the shell's
    value to be able to build extension modules using the
@@ -965,8 +988,8 @@ Linker flags
 
 .. envvar:: LDFLAGS
 
-   Linker flags, e.g. ``-L<lib dir>`` if you have libraries in a nonstandard
-   directory ``<lib dir>``.
+   Linker flags, e.g. :samp:`-L{lib_dir}` if you have libraries in a nonstandard
+   directory *lib_dir*.
 
    Both :envvar:`CPPFLAGS` and :envvar:`LDFLAGS` need to contain the shell's
    value to be able to build extension modules using the

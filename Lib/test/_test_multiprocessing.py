@@ -329,6 +329,7 @@ class _TestProcess(BaseTestCase):
             p.join()
             self.assertEqual(p.exitcode, 0)
 
+    @support.requires_resource('cpu')
     def test_args_argument(self):
         # bpo-45735: Using list or tuple as *args* in constructor could
         # achieve the same effect.
@@ -674,6 +675,7 @@ class _TestProcess(BaseTestCase):
 
         close_queue(q)
 
+    @support.requires_resource('walltime')
     def test_many_processes(self):
         if self.TYPE == 'threads':
             self.skipTest('test not appropriate for {}'.format(self.TYPE))
@@ -4466,6 +4468,7 @@ class _TestFinalize(BaseTestCase):
         result = [obj for obj in iter(conn.recv, 'STOP')]
         self.assertEqual(result, ['a', 'b', 'd10', 'd03', 'd02', 'd01', 'e'])
 
+    @support.requires_resource('cpu')
     def test_thread_safety(self):
         # bpo-24484: _run_finalizers() should be thread-safe
         def cb():
@@ -4951,6 +4954,7 @@ class TestWait(unittest.TestCase):
     def test_wait_socket_slow(self):
         self.test_wait_socket(True)
 
+    @support.requires_resource('walltime')
     def test_wait_timeout(self):
         from multiprocessing.connection import wait
 
@@ -4979,6 +4983,7 @@ class TestWait(unittest.TestCase):
         sem.release()
         time.sleep(period)
 
+    @support.requires_resource('walltime')
     def test_wait_integer(self):
         from multiprocessing.connection import wait
 
@@ -5404,6 +5409,32 @@ class TestStartMethod(unittest.TestCase):
                 p = process_ctx.Process(target=close_queue, args=(queue,))
                 p.start()
                 p.join()
+
+    @classmethod
+    def _put_one_in_queue(cls, queue):
+        queue.put(1)
+
+    @classmethod
+    def _put_two_and_nest_once(cls, queue):
+        queue.put(2)
+        process = multiprocessing.Process(target=cls._put_one_in_queue, args=(queue,))
+        process.start()
+        process.join()
+
+    def test_nested_startmethod(self):
+        # gh-108520: Regression test to ensure that child process can send its
+        # arguments to another process
+        queue = multiprocessing.Queue()
+
+        process = multiprocessing.Process(target=self._put_two_and_nest_once, args=(queue,))
+        process.start()
+        process.join()
+
+        results = []
+        while not queue.empty():
+            results.append(queue.get())
+
+        self.assertEqual(results, [2, 1])
 
 
 @unittest.skipIf(sys.platform == "win32",
@@ -6088,7 +6119,8 @@ class ThreadsMixin(BaseMixin):
 # Functions used to create test cases from the base ones in this module
 #
 
-def install_tests_in_module_dict(remote_globs, start_method):
+def install_tests_in_module_dict(remote_globs, start_method,
+                                 only_type=None, exclude_types=False):
     __module__ = remote_globs['__name__']
     local_globs = globals()
     ALL_TYPES = {'processes', 'threads', 'manager'}
@@ -6101,6 +6133,10 @@ def install_tests_in_module_dict(remote_globs, start_method):
                 continue
             assert set(base.ALLOWED_TYPES) <= ALL_TYPES, base.ALLOWED_TYPES
             for type_ in base.ALLOWED_TYPES:
+                if only_type and type_ != only_type:
+                    continue
+                if exclude_types:
+                    continue
                 newname = 'With' + type_.capitalize() + name[1:]
                 Mixin = local_globs[type_.capitalize() + 'Mixin']
                 class Temp(base, Mixin, unittest.TestCase):
@@ -6111,6 +6147,9 @@ def install_tests_in_module_dict(remote_globs, start_method):
                 Temp.__module__ = __module__
                 remote_globs[newname] = Temp
         elif issubclass(base, unittest.TestCase):
+            if only_type:
+                continue
+
             class Temp(base, object):
                 pass
             Temp.__name__ = Temp.__qualname__ = name
