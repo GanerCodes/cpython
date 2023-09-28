@@ -1,5 +1,5 @@
-python
-python.exe
+/python
+/python.exe
 
 #####
 # First, rules intended to apply in all subdirectories.
