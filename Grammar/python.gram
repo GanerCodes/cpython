@@ -159,7 +159,7 @@ augassign[AugOperator*]:
     | '+=' { _PyPegen_augoperator(p, Add) }
     | '-=' { _PyPegen_augoperator(p, Sub) }
     | '*=' { _PyPegen_augoperator(p, Mult) }
-    | '@=' { CHECK_VERSION(AugOperator*, 5, "The '@' operator is", _PyPegen_augoperator(p, MatMult)) }
+    | '@=' { _PyPegen_augoperator(p, MatMult) }
     | '/=' { _PyPegen_augoperator(p, Div) }
     | '%=' { _PyPegen_augoperator(p, Mod) }
     | '&=' { _PyPegen_augoperator(p, BitAnd) }
@@ -624,7 +624,6 @@ keyword_pattern[KeyPatternPair*]:
     | arg=NAME '=' value=pattern { _PyPegen_key_pattern_pair(p, arg, value) }
 
 # Type statement
-# ---------------
 
 type_alias[stmt_ty]:
     | "type" n=NAME t=[type_params] '=' b=expression {
@@ -632,7 +631,6 @@ type_alias[stmt_ty]:
         _PyAST_TypeAlias(CHECK(expr_ty, _PyPegen_set_expr_context(p, n, Store)), t, b, EXTRA)) }
 
 # Type parameter declaration
-# --------------------------
 
 type_params[asdl_type_param_seq*]: '[' t=type_param_seq  ']' {
         CHECK_VERSION(asdl_type_param_seq *, 12, "Type parameter lists are", t) }
@@ -657,7 +655,6 @@ type_param[type_param_ty] (memo):
 type_param_bound[expr_ty]: ":" e=expression { e }
 
 # EXPRESSIONS
-# -----------
 
 expressions[expr_ty]:
     | a=expression b=(',' c=expression { c })+ [','] {
@@ -669,10 +666,6 @@ expression[expr_ty] (memo): # λ
     | cool_impl_lamb
     | expression_not_cool_impl_lamb
 
-# kitty_expressions[asdl_expr_seq*]: a[asdl_expr_seq*]='`$'.(expression_not_cool_impl_lamb_anticoolcatinator)+ { a }
-# coolcat[expr_ty]: a=expression_not_cool_impl_lamb_anticoolcatinator '`$' b[asdl_expr_seq*]=kitty_expressions {
-#         _PyAST_List( _PyPegen_seq_insert_in_front(p, a, b), Load, EXTRA) }
-# expression_not_cool_impl_lamb_anticoolcatinator[expr_ty] (memo): topcat | bottomcat
 expression_not_cool_impl_lamb[expr_ty] (memo): topcat | bottomcat
 topcat[expr_ty] (memo):
     | a=disjunction 'if' b=disjunction 'else' c=expression { _PyAST_IfExp(b, a, c, EXTRA) }
@@ -707,9 +700,6 @@ assignment_expression[expr_ty]: # λ
         _PyAST_NamedExpr(
             _PyPegen_set_expr_context(p, a, Store),
             b, EXTRA) }
-        # CHECK_VERSION(expr_ty, 8, "Assignment expressions are",
-        #     _PyAST_NamedExpr(
-        #         CHECK(expr_ty, _PyPegen_set_expr_context(p, a, Store)), b, EXTRA)) }
 
 named_expression[expr_ty]: # λ
     | assignment_expression
@@ -735,7 +725,6 @@ inversion[expr_ty] (memo):
     | comparison
 
 # Comparison operators
-# --------------------
 
 comparison[expr_ty]:
     | a=bitwise_or b=compare_op_bitwise_or_pair+ {
@@ -771,17 +760,9 @@ isnot_bitwise_or[CmpopExprPair*]: 'is' 'not' a=bitwise_or { _PyPegen_cmpop_expr_
 is_bitwise_or[CmpopExprPair*]: 'is' a=bitwise_or { _PyPegen_cmpop_expr_pair(p, Is, a) }
 
 # Bitwise operators
-# -----------------
 
 bitwise_or[expr_ty]:
-    | a=bitwise_or '|' b=coolcat { _PyAST_BinOp(a, BitOr, b, EXTRA) }
-    | a=bitwise_or b=coolcat { _PyAST_BinOp(a, BitOr, b, EXTRA) }
-    | coolcat
-
-kitty_expressions[asdl_expr_seq*]: a[asdl_expr_seq*]='`$'.(bitwise_xor)+ { a }
-coolcat[expr_ty]:
-    | a=bitwise_xor '`$' b[asdl_expr_seq*]=kitty_expressions {
-        _PyAST_List(_PyPegen_seq_insert_in_front(p, a, b), Load, EXTRA) }
+    | a=bitwise_or '|' b=bitwise_xor { _PyAST_BinOp(a, BitOr, b, EXTRA) }
     | bitwise_xor
 
 bitwise_xor[expr_ty]:
@@ -797,12 +778,24 @@ shift_expr[expr_ty]:
     | a=shift_expr '>>' b=sum { _PyAST_BinOp(a, RShift, b, EXTRA) }
     | sum
 
-# Arithmetic operators
-# --------------------
+# 🟑 kitty_expressions[asdl_expr_seq*]: a[asdl_expr_seq*]='`$'.(term)+ { a } 🟑
+# 🟑 star_named_expressions[asdl_expr_seq*]: a[asdl_expr_seq*]=','.star_named_expression+ [','] { a } 🟑
+# 🟑 list[expr_ty]: | '[' a=[star_named_expressions] ']' { _PyAST_List(a, Load, EXTRA) } 🟑
 
 sum[expr_ty]:
-    | a=sum '+' b=term { _PyAST_BinOp(a, Add, b, EXTRA) }
-    | a=sum '-' b=term { _PyAST_BinOp(a, Sub, b, EXTRA) }
+    | a=sum '+' b=swooce { _PyAST_BinOp(a, Add, b, EXTRA) }
+    | a=sum '-' b=swooce { _PyAST_BinOp(a, Sub, b, EXTRA) }
+    | swooce
+
+swooce[expr_ty]:
+    | a=swooce !('+'|'-'|'~') b=coolcat { _PyAST_BinOp(a, Mult, b, EXTRA) }
+    | coolcat
+
+kitty_has_eyes_on_you: a=term '`$' term
+kitty_expressions[asdl_expr_seq*]:
+    | &kitty_has_eyes_on_you a[asdl_expr_seq*]='`$'.term+ { a }
+coolcat[expr_ty]: # λ
+    | a=kitty_expressions { _PyAST_List(a, Load, EXTRA) }
     | term
 
 term[expr_ty]:
@@ -810,7 +803,7 @@ term[expr_ty]:
     | a=term '/' b=factor { _PyAST_BinOp(a, Div, b, EXTRA) }
     | a=term '//' b=factor { _PyAST_BinOp(a, FloorDiv, b, EXTRA) }
     | a=term '%' b=factor { _PyAST_BinOp(a, Mod, b, EXTRA) }
-    | a=term '@' b=factor { CHECK_VERSION(expr_ty, 5, "The '@' operator is", _PyAST_BinOp(a, MatMult, b, EXTRA)) }
+    | a=term '@' b=factor { _PyAST_BinOp(a, MatMult, b, EXTRA) }
     | factor
 
 factor[expr_ty] (memo):
@@ -824,9 +817,6 @@ power[expr_ty]:
     | await_primary
 
 # Primary elements
-# ----------------
-
-# Primary elements are things like "obj.something.something", "obj[something]", "obj(something)", "obj" ...
 
 await_primary[expr_ty] (memo):
     | AWAIT a=primary { CHECK_VERSION(expr_ty, 5, "Await expressions are", _PyAST_Await(a, EXTRA)) }
@@ -869,7 +859,6 @@ group[expr_ty]:
     | invalid_group
 
 # Lambda functions # λ
-# ----------------
 
 lambdef[expr_ty]:
     | 'lambda' a=[lambda_params] ':' b=expression {
@@ -928,7 +917,6 @@ lambda_param[arg_ty]: a=NAME { _PyAST_arg(a->v.Name.id, NULL, NULL, EXTRA) }
 lamb_default[expr_ty]: '=' a=expression_not_cool_impl_lamb { a } | invalid_default
 
 # LITERALS
-# ========
 
 fstring_middle[expr_ty]:
     | fstring_replacement_field
@@ -960,7 +948,6 @@ tuple[expr_ty]:
 set[expr_ty]: '{' a=star_named_expressions '}' { _PyAST_Set(a, EXTRA) }
 
 # Dicts
-# -----
 
 dict[expr_ty]:
     | '{' a=[double_starred_kvpairs] '}' {
@@ -979,7 +966,6 @@ double_starred_kvpair[KeyValuePair*]:
 kvpair[KeyValuePair*]: a=expression ':' b=expression { _PyPegen_key_value_pair(p, a, b) }
 
 # Comprehensions & Generators
-# ---------------------------
 
 for_if_clauses[asdl_comprehension_seq*]:
     | a[asdl_comprehension_seq*]=for_if_clause+ { a }
@@ -1008,7 +994,6 @@ dictcomp[expr_ty]:
     | invalid_dict_comprehension
 
 # FUNCTION CALL ARGUMENTS
-# =======================
 
 arguments[expr_ty] (memo):
     | a=args [','] &')' { a }
@@ -1044,10 +1029,8 @@ kwarg_or_double_starred[KeywordOrStarred*]:
     | '**' a=expression { _PyPegen_keyword_or_starred(p, CHECK(keyword_ty, _PyAST_keyword(NULL, a, EXTRA)), 1) }
 
 # ASSIGNMENT TARGETS
-# ==================
 
 # Generic targets
-# ---------------
 
 # NOTE: star_targets may contain *bitwise_or, targets may not.
 star_targets[expr_ty]:
@@ -1101,7 +1084,6 @@ t_primary[expr_ty]:
 t_lookahead: '(' | '[' | '.'
 
 # Targets for del statements
-# --------------------------
 
 del_targets[asdl_expr_seq*]: a[asdl_expr_seq*]=','.del_target+ [','] { a }
 
@@ -1117,7 +1099,6 @@ del_t_atom[expr_ty]:
     | '[' a=[del_targets] ']' { _PyAST_List(a, Del, EXTRA) }
 
 # TYPING ELEMENTS
-# ---------------
 
 # type_expressions allow */** but ignore them
 type_expressions[asdl_expr_seq*]:
@@ -1145,10 +1126,8 @@ func_type_comment[Token*]:
 # ========================= END OF THE GRAMMAR ===========================
 
 
-
 # ========================= START OF INVALID RULES =======================
 
-# From here on, there are rules for invalid syntax with specialised error messages
 invalid_arguments:
     | a=args ',' '*' { RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "iterable argument unpacking follows keyword argument unpacking") }
     | a=expression b=for_if_clauses ',' [args | expression for_if_clauses] {
@@ -1188,12 +1167,7 @@ invalid_expression:
    | !(NAME STRING | SOFT_KEYWORD) a=disjunction b=expression_without_invalid {
         _PyPegen_check_legacy_stmt(p, a) ? NULL : p->tokens[p->mark-1]->level == 0 ? NULL :
         RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, "invalid syntax. Perhaps you forgot a comma?") }
-# <<<<<<< HEAD
    | a='lambda' [lambda_params] b=':' &(FSTRING_MIDDLE | fstring_replacement_field)  {
-# =======
-   # | a=disjunction 'if' b=disjunction !('else'|':') { RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, "expected 'else' after 'if' expression") }
-   # | a='lambda' [lambda_params] b=':' &FSTRING_MIDDLE  {
-# >>>>>>> 648198c37f2b1ba4baef1f1a4c6fd14708f879d8
         RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, "f-string: lambda expressions are not allowed without parentheses") }
 
 invalid_named_expression(memo):
@@ -1433,3 +1407,12 @@ invalid_replacement_field:
 invalid_conversion_character:
     | '!' &(':' | '}') { RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN("f-string: missing conversion character") }
     | '!' !NAME { RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN("f-string: invalid conversion character") }
+
+
+
+# make -s -j10 regen-pegen regen-frozen
+# static int symtable_handle_namedexpr(struct symtable *st, expr_ty e) {
+#     VISIT(st, expr, e->v.NamedExpr.value);
+#     VISIT(st, expr, e->v.NamedExpr.target);
+#     return 1;
+# }
